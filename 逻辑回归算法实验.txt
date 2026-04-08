@@ -1,0 +1,93 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
+import seaborn as sns
+
+class LogisticRegression:
+    def __init__(self, learning_rate=0.01, num_iterations=1000, C=1.0):
+        self.learning_rate = learning_rate
+        self.num_iterations = num_iterations
+        self.C = C
+        self.weights = None
+        self.bias = None
+
+    def sigmoid(self, z):
+        return 1 / (1 + np.exp(-z))
+
+    def fit(self, X, y):
+        num_samples, num_features = X.shape
+        self.weights = np.zeros(num_features)
+        self.bias = 0
+
+        for _ in range(self.num_iterations):
+            linear_model = np.dot(X, self.weights) + self.bias
+            y_pred = self.sigmoid(linear_model)
+
+            dw = (1 / num_samples) * np.dot(X.T, (y_pred - y)) + (1 / self.C) * self.weights
+            db = (1 / num_samples) * np.sum(y_pred - y)
+
+            self.weights -= self.learning_rate * dw
+            self.bias -= self.learning_rate * db
+
+    def predict(self, X):
+        linear_model = np.dot(X, self.weights) + self.bias
+        y_pred = self.sigmoid(linear_model)
+        y_pred_cls = [1 if i > 0.5 else 0 for i in y_pred]
+        return np.array(y_pred_cls)
+
+
+# 加载鸢尾花数据集
+iris = load_iris()
+X = iris.data[:100, :2]
+y = iris.target[:100]
+
+# 划分训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+# 不同的正则化系数
+C_values = [0.01, 0.1, 1, 10, 100]
+
+# 可视化决策边界
+plt.figure(figsize=(15, 10))
+for i, C in enumerate(C_values):
+    model = LogisticRegression(C=C)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    accuracy = accuracy_score(y_test, y_pred)
+    conf_matrix = confusion_matrix(y_test, y_pred)
+
+    print(f"正则化系数 C = {C}")
+    print(f"准确率: {accuracy}")
+    print(f"混淆矩阵:\n{conf_matrix}")
+
+    # 绘制决策边界
+    plt.subplot(2, 3, i + 1)
+    x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
+    y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02),
+                         np.arange(y_min, y_max, 0.02))
+    Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    plt.contourf(xx, yy, Z, alpha=0.4)
+    plt.scatter(X[:, 0], X[:, 1], c=y, edgecolors='k')
+    plt.title(f'C = {C}, 准确率: {accuracy:.2f}')
+
+# 可视化混淆矩阵
+plt.figure(figsize=(12, 8))
+for i, C in enumerate(C_values):
+    model = LogisticRegression(C=C)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    conf_matrix = confusion_matrix(y_test, y_pred)
+    plt.subplot(2, 3, i + 1)
+    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
+    plt.title(f'C = {C}')
+    plt.xlabel('预测标签')
+    plt.ylabel('真实标签')
+
+plt.tight_layout()
+plt.show()
